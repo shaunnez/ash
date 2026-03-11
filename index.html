@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Job Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+:root {
+  --bg: #FAF7F2; --bg-card: #FFFFFF; --bg-warm: #F5EDE3;
+  --text: #2C2418; --text-secondary: #8B7E6A; --text-muted: #B8AFA2;
+  --accent: #C8613A; --accent-hover: #A84E2D; --accent-soft: #F4E4DB;
+  --green: #4A8B6E; --green-soft: #E2F0E8;
+  --yellow: #C69B2C; --yellow-soft: #FFF5D6;
+  --red: #C8443A; --red-soft: #FDE8E6;
+  --border: #E8E2D8;
+  --shadow-md: 0 4px 16px rgba(44,36,24,0.08);
+  --shadow-lg: 0 8px 32px rgba(44,36,24,0.12);
+  --radius: 12px; --radius-sm: 8px;
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'Outfit', -apple-system, sans-serif;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:16px;-webkit-text-size-adjust:100%}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);min-height:100dvh;line-height:1.5;-webkit-font-smoothing:antialiased}
+
+.gate{display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:20px}
+.gate-box{background:var(–bg-card);border:1px solid var(–border);border-radius:var(–radius);padding:40px 32px;max-width:360px;width:100%;text-align:center;box-shadow:var(–shadow-lg)}
+.gate-box h1{font-family:var(–font-display);font-size:24px;margin-bottom:4px}
+.gate-box p{font-size:14px;color:var(–text-secondary);font-weight:300;margin-bottom:24px}
+.gate-box input{width:100%;padding:12px 16px;border:1px solid var(–border);border-radius:var(–radius-sm);font-family:var(–font-body);font-size:15px;text-align:center;margin-bottom:12px}
+.gate-box input:focus{outline:none;border-color:var(–accent);box-shadow:0 0 0 3px var(–accent-soft)}
+.gate-error{color:var(–red);font-size:13px;display:none;margin-bottom:8px}
+
+.app{max-width:960px;margin:0 auto;padding:0 16px;padding-bottom:calc(80px + var(–safe-bottom));display:none}
+.header{padding:32px 0 24px}
+.header-top{display:flex;justify-content:space-between;align-items:flex-start}
+.header h1{font-family:var(–font-display);font-size:28px;font-weight:400;letter-spacing:-0.01em}
+.header p{font-size:14px;color:var(–text-secondary);margin-top:4px;font-weight:300}
+.header-stats{display:flex;gap:20px;margin-top:16px;flex-wrap:wrap}
+.stat{display:flex;align-items:baseline;gap:6px}
+.stat-num{font-family:var(–font-display);font-size:24px;color:var(–accent)}
+.stat-label{font-size:13px;color:var(–text-secondary);font-weight:300}
+.gear-btn{background:none;border:none;font-size:20px;cursor:pointer;padding:4px;opacity:.5;transition:opacity .2s}
+.gear-btn:hover{opacity:1}
+
+.nav-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(–border);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.nav-tab{padding:10px 16px;border:none;background:none;font-family:var(–font-body);font-size:14px;font-weight:400;color:var(–text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.nav-tab:hover{color:var(–text-secondary)}
+.nav-tab.active{color:var(–accent);border-bottom-color:var(–accent);font-weight:500}
+
+.filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-btn{padding:8px 16px;border:1px solid var(–border);border-radius:100px;background:var(–bg-card);font-family:var(–font-body);font-size:13px;font-weight:400;color:var(–text-secondary);cursor:pointer;transition:all .2s;white-space:nowrap}
+.filter-btn:hover{border-color:var(–text-secondary);color:var(–text)}
+.filter-btn.active{background:var(–text);color:var(–bg);border-color:var(–text)}
+.search-input{flex:1;min-width:140px;padding:8px 14px;border:1px solid var(–border);border-radius:100px;font-family:var(–font-body);font-size:13px;background:var(–bg-card);color:var(–text)}
+.search-input:focus{outline:none;border-color:var(–accent);box-shadow:0 0 0 3px var(–accent-soft)}
+.search-input::placeholder{color:var(–text-muted)}
+
+.job-list{display:flex;flex-direction:column;gap:8px}
+.job-card{background:var(–bg-card);border:1px solid var(–border);border-radius:var(–radius);padding:16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.job-card::before{content:’’;position:absolute;left:0;top:0;bottom:0;width:3px;background:var(–accent);opacity:0;transition:opacity .2s}
+.job-card:hover{box-shadow:var(–shadow-md);border-color:transparent}
+.job-card:hover::before{opacity:1}
+.job-card.seen{opacity:.65}
+.job-card.applied{border-left:3px solid var(–green);opacity:.6}
+.job-card.applied::before{display:none}
+.job-card.not_interested{border-left:3px solid var(–text-muted);opacity:.4}
+.job-card.not_interested::before{display:none}
+.job-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.job-title{font-weight:500;font-size:15px;line-height:1.3}
+.job-company{font-size:13px;color:var(–text-secondary);margin-top:2px;font-weight:300}
+.job-meta{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.job-meta-tag{font-size:12px;color:var(–text-muted)}
+.accredited-badge{font-size:11px;font-weight:500;padding:2px 8px;border-radius:100px;white-space:nowrap}
+.accredited-badge.yes{background:var(–green-soft);color:var(–green)}
+.accredited-badge.no{background:var(–yellow-soft);color:var(–yellow)}
+.accredited-badge.unknown{background:var(–bg-warm);color:var(–text-muted)}
+.job-card-actions{display:flex;gap:2px;flex-shrink:0}
+.card-action-btn{background:none;border:none;font-size:15px;cursor:pointer;padding:4px 6px;opacity:.35;transition:all .15s;border-radius:6px}
+.card-action-btn:hover{opacity:1;background:var(–bg-warm)}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(44,36,24,.4);backdrop-filter:blur(4px);z-index:100}
+.modal-overlay.open{display:block}
+.modal{position:fixed;top:0;right:0;bottom:0;width:100%;max-width:600px;background:var(–bg);z-index:101;overflow-y:auto;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);-webkit-overflow-scrolling:touch}
+.modal.open{transform:translateX(0)}
+.modal-inner{padding:24px 20px;padding-bottom:calc(24px + var(–safe-bottom))}
+.modal-close{display:flex;align-items:center;gap:8px;background:none;border:none;font-family:var(–font-body);font-size:14px;color:var(–text-secondary);cursor:pointer;padding:8px 0;margin-bottom:16px}
+.modal-close:hover{color:var(–text)}
+.detail-title{font-family:var(–font-display);font-size:24px;line-height:1.2;margin-bottom:4px}
+.detail-company{font-size:16px;color:var(–text-secondary);font-weight:300;margin-bottom:16px}
+.detail-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.detail-meta-item{padding:6px 12px;background:var(–bg-warm);border-radius:100px;font-size:12px;color:var(–text-secondary)}
+.detail-section{margin-bottom:24px}
+.detail-section h3{font-family:var(–font-display);font-size:16px;margin-bottom:8px}
+.detail-section p,.detail-section .desc-text{font-size:14px;color:var(–text-secondary);line-height:1.65;font-weight:300;white-space:pre-wrap;word-break:break-word}
+.detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:100px;font-family:var(–font-body);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .2s;white-space:nowrap;text-decoration:none}
+.btn-primary{background:var(–accent);color:#fff}
+.btn-primary:hover{background:var(–accent-hover)}
+.btn-secondary{background:var(–bg-warm);color:var(–text);border:1px solid var(–border)}
+.btn-secondary:hover{background:var(–border)}
+.btn-green{background:var(–green);color:#fff}
+.btn-green:hover{background:#3d7a5e}
+.btn-red{background:var(–red-soft);color:var(–red);border:1px solid transparent}
+.btn-red:hover{background:#f5d0cd}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.cover-letter-output{background:var(–bg-card);border:1px solid var(–border);border-radius:var(–radius);padding:24px;margin-top:12px;font-size:14px;line-height:1.7;color:var(–text);font-weight:300;white-space:pre-wrap;word-break:break-word}
+.cl-actions{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+
+.template-container{background:var(–bg-card);border:1px solid var(–border);border-radius:var(–radius);padding:24px}
+.template-container h2{font-family:var(–font-display);font-size:20px;margin-bottom:16px}
+.template-text{font-size:14px;line-height:1.7;color:var(–text);font-weight:300;white-space:pre-wrap;word-break:break-word}
+.template-text .ph{color:var(–red);font-weight:500}
+
+.settings-panel{background:var(–bg-card);border:1px solid var(–border);border-radius:var(–radius);padding:24px}
+.settings-panel h2{font-family:var(–font-display);font-size:20px;margin-bottom:16px}
+.settings-section{margin-bottom:24px}
+.settings-section h3{font-size:14px;font-weight:500;margin-bottom:8px}
+.settings-section p{font-size:13px;color:var(–text-secondary);font-weight:300;margin-bottom:8px}
+.tag-list{display:flex;flex-direction:column;gap:6px}
+.tag-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(–bg-warm);border-radius:var(–radius-sm);font-size:13px}
+.tag-item button{background:none;border:none;color:var(–red);cursor:pointer;font-size:16px;padding:0 4px}
+.add-row{display:flex;gap:8px;margin-top:8px}
+.add-row input{flex:1;padding:8px 12px;border:1px solid var(–border);border-radius:var(–radius-sm);font-family:var(–font-body);font-size:13px}
+.add-row input:focus{outline:none;border-color:var(–accent)}
+
+.empty-state{text-align:center;padding:60px 20px;color:var(–text-muted)}
+.empty-state-icon{font-size:48px;margin-bottom:12px;opacity:.4}
+.empty-state h3{font-family:var(–font-display);font-size:20px;color:var(–text-secondary);margin-bottom:4px}
+.empty-state p{font-size:14px;font-weight:300}
+.loading-spinner{display:inline-block;width:18px;height:18px;border:2px solid var(–border);border-top-color:var(–accent);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.page-loading{display:flex;align-items:center;justify-content:center;padding:80px 20px;gap:12px;color:var(–text-muted);font-size:14px}
+.load-more-wrap{text-align:center;padding:20px}
+
+.toast{position:fixed;bottom:calc(20px + var(–safe-bottom));left:50%;transform:translateX(-50%) translateY(80px);background:var(–text);color:var(–bg);padding:10px 20px;border-radius:100px;font-size:13px;z-index:200;transition:transform .3s cubic-bezier(.4,0,.2,1);pointer-events:none;box-shadow:var(–shadow-lg);white-space:nowrap}
+.toast.visible{transform:translateX(-50%) translateY(0)}
+.fade-in{animation:fadeIn .35s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+@media(max-width:600px){
+.header h1{font-size:24px}.stat-num{font-size:20px}.detail-title{font-size:20px}
+.modal{max-width:100%}.filters{gap:6px}.filter-btn{padding:7px 12px;font-size:12px}
+.detail-actions{flex-direction:column}.detail-actions .btn{justify-content:center}
+.nav-tab{padding:8px 12px;font-size:13px}
+}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(–border);border-radius:3px}
+</style>
+
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate-box fade-in">
+    <h1>Job Tracker</h1>
+    <p>Enter your password</p>
+    <input type="password" id="gatePw" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()" autofocus>
+    <div class="gate-error" id="gateErr">Incorrect password</div>
+    <button class="btn btn-primary" onclick="checkPw()" style="width:100%;justify-content:center">Enter</button>
+  </div>
+</div>
+
+<div class="app" id="app">
+  <div class="header">
+    <div class="header-top">
+      <div><h1>Job Tracker</h1><p>Auckland roles at accredited employers</p></div>
+      <button class="gear-btn" onclick="showTab('settings')" title="Settings">⚙</button>
+    </div>
+    <div class="header-stats">
+      <div class="stat"><span class="stat-num" id="sNew">—</span><span class="stat-label">new</span></div>
+      <div class="stat"><span class="stat-num" id="sSeen">—</span><span class="stat-label">seen</span></div>
+      <div class="stat"><span class="stat-num" id="sApplied">—</span><span class="stat-label">applied</span></div>
+    </div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-tab="jobs" onclick="showTab('jobs')">Jobs</button>
+    <button class="nav-tab" data-tab="template" onclick="showTab('template')">Template</button>
+    <button class="nav-tab" data-tab="settings" onclick="showTab('settings')">Settings</button>
+  </div>
+  <div id="tabJobs">
+    <div class="filters">
+      <button class="filter-btn active" data-filter="new" onclick="setFilter('new',this)">New</button>
+      <button class="filter-btn" data-filter="seen" onclick="setFilter('seen',this)">Seen</button>
+      <button class="filter-btn" data-filter="applied" onclick="setFilter('applied',this)">Applied</button>
+      <button class="filter-btn" data-filter="not_interested" onclick="setFilter('not_interested',this)">Not Interested</button>
+      <button class="filter-btn" data-filter="all" onclick="setFilter('all',this)">All</button>
+      <input type="search" class="search-input" placeholder="Search jobs..." oninput="doSearch(this.value)">
+    </div>
+    <div class="job-list" id="jobList"></div>
+    <div class="load-more-wrap" id="loadMore" style="display:none"><button class="btn btn-secondary" onclick="nextPage()">Load more</button></div>
+  </div>
+  <div id="tabTemplate" style="display:none">
+    <div class="template-container">
+      <h2>Cover Letter Template</h2>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;font-weight:300">This template is used when generating cover letters. <span class="ph">[Red text]</span> shows the sections AI fills in for each job.</p>
+      <div class="template-text" id="tplDisplay"></div>
+    </div>
+  </div>
+  <div id="tabSettings" style="display:none">
+    <div class="settings-panel">
+      <h2>Settings</h2>
+      <div class="settings-section">
+        <h3>Blocked Title Phrases</h3>
+        <p>Jobs containing these phrases won't appear. The crawler will also skip them.</p>
+        <div class="tag-list" id="blockedList"></div>
+        <div class="add-row"><input type="text" id="blockIn" placeholder="e.g. Warehouse, Forklift" onkeydown="if(event.key==='Enter')addBlocked()"><button class="btn btn-secondary btn-sm" onclick="addBlocked()">Add</button></div>
+      </div>
+      <div class="settings-section">
+        <h3>Search Keywords</h3>
+        <p>The Seek crawler searches these terms daily.</p>
+        <div class="tag-list" id="kwList"></div>
+        <div class="add-row"><input type="text" id="kwIn" placeholder="e.g. office coordinator" onkeydown="if(event.key==='Enter')addKw()"><button class="btn btn-secondary btn-sm" onclick="addKw()">Add</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="overlay" onclick="closeDetail()"></div>
+<div class="modal" id="panel"><div class="modal-inner" id="panelContent"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const C = {
+  pw: 'YourAmazing',
+  sbUrl: 'https://dkywuipcqjxuivtpflig.supabase.co',
+  sbKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRreXd1aXBjcWp4dWl2dHBmbGlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMDQ1NDEsImV4cCI6MjA4ODc4MDU0MX0.oeEdZOEb9r2D3xfoZf0s-JS97HKq8mtwl9IVh8SuUjQ',
+  aiKey: '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',
+  // Google Drive service account
+  gEmail: 'ash-service-account@ash-job-hunt.iam.gserviceaccount.com',
+  gKey: `-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDPlL7geeZbhQc6
+WNXvz82LIlx+xUHj69Iqc5miQ/8Rt7BPwYC4aP54CeqLdDBR8nAyAiJrvClr1jrn
+YCPzK6T8fhS8PKSa2OppjbFDNDk0kPZ7CkjKDHXhxllMe1Hu/KFWY2VmooEQ7jbm
+sRFetVPgbrB0Q/3yZGvgMEVy7liQgrmOn4slqK3ApXMRvQ//2Pn6Tp1Le/Ikd9Wr
+303CFacBaGt82nU5hGHlP/ciH0IOs9hU11aUOnVAro+s1N51j0ePC2AzmNujF5bG
+P+52mEAOFe3NyKx8jpNLJwpj/OR8VIZpNRczRwyVLpPz4ccY4lT0k+tY6mT73BBo
+Cp4o3pa9AgMBAAECggEANTcby+5UOMgctz+I8Oaj+fRAJBurraOKCGoES84EuOUP
+ZRLlTeFUwy8/mqqZrJhrXNahPl9JeyS7iw9hh/h7XmNwK2WciTnstkyl0eW0eJ5l
+IdvcFzgkjFHOGMZQleTb84qdtzcXwWBgYLmqC06PBy05PUUk+Bv4b8vQMguaVslG
+Aon0Eeo4mE5K6oq5wqCB1WvqSa0ZrYO86WJY2Z8LrgFyi1xkLr0W2/BT3NxDYnLI
+YYxbiSjOoTL0c9IKsmPW0KBllTmV5XLQdVa5aDKNo9j8eZ31XSMS3FFw5O4mcMJi
+aeo//otwkTdm+0FaLUGZsRnkisccSJoJIhTrEGOYfQKBgQD4lzuaUh0SO/J3Zx4q
+K08uFL2dhP5TlQIVLRSofKuRYwNEigsHWJvEqceVYmL1c+zY24gHCkAOsDUvvwEB
+CZuZj4NUFMOQL1qt+RnQtkIkIaDwQOrgcrc34k4CWW9d+A7A0vUBKfejINBCrZ5Z
+zdez1/AJWU4uu40nzFX3UasenwKBgQDVxJr7wOAXBeG6NcWr/AdribCizePbAx5/
+TwjHfo4xJsvnQowmFDVHUxmrpX7EiniTIeXmB1/9fRVg3KXTU/2oK6POamRPI5RZ
+cpOF6fcIEEE9ciI+JfZhSP9Zhif+kmZsJ8FgADT9K0qVEedAJrwVGhYusThcl6SX
+ZGi84lg5IwKBgQCZmmDyzxA1hyMgEnB6H/6x+5DadyXrIWSDDzL3lOkyUZrgS+fa
+py7AyyOOs5dwESxlJukbaIMCUHDcysnlCTnDHgFI//eC7S+71fLUmvmtd7YJHiPD
+gj6h4kzPeNGun6sGDJPlHzhr7Meim8L/vIgvERu5uxvrFmp3D/SCeE0jAwKBgH9J
+wr+F6enLps2qlzoBqKlwI63Ny4/uG4rTFPc1dJXv9BqQlcNW5SLDaNW8he+iRInX
+9X0zhwT6JnC28kcUDEbHNZMD5xb4qK1afF2RI3e5th9QhvNax4rGXMaCC+6aXkKo
+qYzwkpzt2ktJjdm1NumZzvueq2D3Kxq6v2M5pC7hAoGBAKOYU2z9NusYLZjW0HCr
+cZ0khe+ZXmZYZBd92+CPtN37WPb2Xk4FUe0tRSOKGziolcP8d7x61K/qWIxikbjK
+rHX8yfsleq/ueVrW0aOPhTCyqjBkLMDqbh2Qs/EDqGmXOFUlJ0BYXLFjqHEBEsVo
+ohuq8D5+vBHnLkZ49EESInde
+-----END PRIVATE KEY-----`,
+  gFolderId: '1BQHsWAZkFkK77BZJMN27jQxDarTJIvNe',
+  gTemplateId: '1zunf3IMWAIDkbP5_sQB_VchumzTIy07V0zP1IQksigY',
+};
+
+const TPL = `Ashlee Tancock
+Auckland, New Zealand  |  029 045 04323  |  ashleightanners@gmail.com
+
+
+[Date]
+[Hiring Manager's Name (if known, otherwise remove this line)]
+[Their Job Title (if known)]
+[Company Name]
+[Company Address (optional)]
+
+Dear [Hiring Manager's Name / Hiring Manager],
+
+I am writing to apply for the [Job Title] role advertised on [Seek / Trade Me Jobs / company website]. With over five years' experience in operations administration, logistics coordination, and office management, I thrive in fast-paced, hands-on environments where no two days are the same. I'd love the opportunity to bring that energy to [Company Name].
+
+[PERSONALISED PARAGRAPH: Mention something specific about the company — their size, what they do, or why Ashlee would be a good fit for their team.]
+
+In my current role at Dalton Electrical, I [RELEVANT EXPERIENCE: pick 2–3 that best match the job ad from: manage calendars, correspondence, and confidential documentation / coordinate job scheduling across departments / review timesheets for payroll processing / raise and process jobs in Simpro / manage documentation in Lentune / maintain training registers and coordinate staff course bookings / manage multiple inboxes and service phone line enquiries / assist with end-of-month accounts processing and supplier invoice queries]. Prior to this, I spent nearly four years at Just Water where I progressed from Customer Service Representative to National Logistics Coordinator, managing daily rosters, resource allocation, route planning, and live delivery tracking for a national team. I also maintained stock and inventory records in iScala and was the primary liaison between drivers and customers.
+
+[EXPERIENCE EMPHASIS: Lead with whichever experience best matches the job ad. For logistics roles, emphasise Just Water. For admin/ops roles, lead with Dalton or AES. For customer service roles, lead with Just Water CSR experience.]
+
+I'm someone who thrives under pressure and genuinely enjoys the variety that comes with keeping operations running smoothly. I bring strong organisational skills, reliability, and the ability to manage competing priorities without dropping the ball. I'm proficient in Simpro, Lentune, iScala, and the Microsoft Office Suite, and I pick up new systems quickly. [OPTIONAL: add something specific about what excites you about this role or company].
+
+I would welcome the opportunity to discuss how my experience could support your team. I'm available for an interview at your convenience and can be reached on 029 045 04323 or at ashleightanners@gmail.com. Thank you for considering my application.
+
+Kind regards,
+Ashlee Tancock`;
+
+const CV = `Ashlee Tancock — Operations & Administration Professional, Auckland NZ. 5+ years across electrical, environmental services, and logistics sectors. Skills: Operations admin, logistics coordination, rostering, calendar/inbox management, payroll support, accounts/invoicing, onboarding, Simpro, Lentune, iScala, MS Office, compliance docs. Current: Executive Office Assistant, Dalton Electrical (Jun 2025–present) — calendars, timesheets, Simpro jobs, Lentune docs, inboxes, scheduling, accounts, training registers. Previous: Office Admin & EA, Advanced Environmental Services (Aug 2024–Mar 2025) — onboarding, site inductions, quotes, invoicing, WorkSafe compliance. Previous: National Logistics Coordinator, Just Water (Feb 2022–Aug 2024) — national rosters, route planning, iScala inventory, KPIs, customer queries. Previous: Customer Service Rep, Just Water (Dec 2020–Feb 2022) — calls, webchat, email, de-escalation.`;
+
+// ============================================================
+// STATE
+// ============================================================
+let db,jobs=[],filter='new',search='',pg=0,sz=20,detailJob=null,blocked=[],keywords=[],letterText='',gToken=null,gTokenExp=0;
+
+// ============================================================
+// AUTH
+// ============================================================
+function checkPw(){
+  if(document.getElementById('gatePw').value===C.pw){
+    document.getElementById('gate').style.display='none';
+    document.getElementById('app').style.display='block';
+    sessionStorage.setItem('a','1'); boot();
+  } else {
+    document.getElementById('gateErr').style.display='block';
+    document.getElementById('gatePw').value='';
+  }
+}
+if(sessionStorage.getItem('a')==='1'){document.getElementById('gate').style.display='none';document.getElementById('app').style.display='block';boot();}
+
+function boot(){db=supabase.createClient(C.sbUrl,C.sbKey);loadJobs();loadCounts();loadBlocked();loadKw();renderTpl();}
+
+// ============================================================
+// GOOGLE AUTH — JWT for Service Account
+// ============================================================
+async function getGoogleToken(){
+  if(gToken && Date.now()<gTokenExp) return gToken;
+  if(!C.gKey||!C.gEmail) return null;
+  try {
+    const now=Math.floor(Date.now()/1000);
+    const header=btoa(JSON.stringify({alg:'RS256',typ:'JWT'})).replace(/=/g,'');
+    const claim=btoa(JSON.stringify({
+      iss:C.gEmail,
+      scope:'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/documents',
+      aud:'https://oauth2.googleapis.com/token',
+      exp:now+3600, iat:now
+    })).replace(/=/g,'');
+    const toSign=header+'.'+claim;
+
+    // Import the private key for signing
+    const pemBody=C.gKey.replace(/-----BEGIN PRIVATE KEY-----/,'').replace(/-----END PRIVATE KEY-----/,'').replace(/\s/g,'');
+    const binaryKey=Uint8Array.from(atob(pemBody),c=>c.charCodeAt(0));
+    const cryptoKey=await crypto.subtle.importKey('pkcs8',binaryKey,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+    const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',cryptoKey,new TextEncoder().encode(toSign));
+    const b64sig=btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+    const jwt=toSign+'.'+b64sig;
+
+    const r=await fetch('https://oauth2.googleapis.com/token',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:`grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`
+    });
+    const d=await r.json();
+    if(d.access_token){gToken=d.access_token;gTokenExp=Date.now()+(d.expires_in-60)*1000;return gToken;}
+    console.error('Google auth failed:',d);return null;
+  }catch(e){console.error('Google auth error:',e);return null;}
+}
+
+// ============================================================
+// GOOGLE DRIVE — Create Doc from cover letter text
+// ============================================================
+async function createDriveDoc(title,letterContent){
+  const token=await getGoogleToken();
+  if(!token){toast('Drive not configured');return null;}
+
+  try{
+    // 1. Create a new Google Doc
+    const createResp=await fetch('https://docs.googleapis.com/v1/documents',{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({title})
+    });
+    if(!createResp.ok){const e=await createResp.text();console.error('Create doc failed:',e);return null;}
+    const doc=await createResp.json();
+    const docId=doc.documentId;
+
+    // 2. Insert the cover letter text
+    const requests=[];
+    // Insert text at the end (index 1 = after the initial newline)
+    requests.push({insertText:{location:{index:1},text:letterContent}});
+
+    // Apply basic formatting
+    const textLen=letterContent.length;
+    // Make the name bold (first line)
+    const firstNewline=letterContent.indexOf('\n');
+    if(firstNewline>0){
+      requests.push({updateTextStyle:{range:{startIndex:1,endIndex:1+firstNewline},textStyle:{bold:true,fontSize:{magnitude:14,unit:'PT'}},fields:'bold,fontSize'}});
+    }
+    // Set body font
+    requests.push({updateTextStyle:{range:{startIndex:1,endIndex:1+textLen},textStyle:{fontFamily:'Calibri',fontSize:{magnitude:11,unit:'PT'}},fields:'fontFamily,fontSize'}});
+
+    await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`,{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({requests})
+    });
+
+    // 3. Move to the target folder
+    if(C.gFolderId){
+      await fetch(`https://www.googleapis.com/drive/v3/files/${docId}?addParents=${C.gFolderId}&fields=id`,{
+        method:'PATCH',
+        headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'}
+      });
+    }
+
+    // 4. Make it accessible to anyone with the link
+    await fetch(`https://www.googleapis.com/drive/v3/files/${docId}/permissions`,{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({role:'writer',type:'anyone'})
+    });
+
+    return `https://docs.google.com/document/d/${docId}/edit`;
+  }catch(e){console.error('Drive error:',e);return null;}
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function showTab(t){
+  document.querySelectorAll('.nav-tab').forEach(n=>n.classList.toggle('active',n.dataset.tab===t));
+  document.getElementById('tabJobs').style.display=t==='jobs'?'':'none';
+  document.getElementById('tabTemplate').style.display=t==='template'?'':'none';
+  document.getElementById('tabSettings').style.display=t==='settings'?'':'none';
+}
+function renderTpl(){let h=esc(TPL);h=h.replace(/\[([^\]]+)\]/g,'<span class="ph">[$1]</span>');document.getElementById('tplDisplay').innerHTML=h;}
+
+// ============================================================
+// DATA
+// ============================================================
+async function loadCounts(){
+  try{
+    const[t,s,a,n]=await Promise.all([
+      db.from('jobs').select('*',{count:'exact',head:true}),
+      db.from('jobs').select('*',{count:'exact',head:true}).eq('status','seen'),
+      db.from('jobs').select('*',{count:'exact',head:true}).eq('status','applied'),
+      db.from('jobs').select('*',{count:'exact',head:true}).eq('status','not_interested')
+    ]);
+    document.getElementById('sNew').textContent=Math.max(0,(t.count||0)-(s.count||0)-(a.count||0)-(n.count||0));
+    document.getElementById('sSeen').textContent=s.count||0;
+    document.getElementById('sApplied').textContent=a.count||0;
+  }catch(e){console.warn(e)}
+}
+
+async function loadJobs(append){
+  if(!append){pg=0;document.getElementById('jobList').innerHTML='<div class="page-loading"><div class="loading-spinner"></div>Loading...</div>';}
+  const f=pg*sz;
+  let q=db.from('jobs').select('*,job_results(is_accredited,companies:company_id(name,is_accredited,linkedin_url,website_url,company_summary))').order('created_at',{ascending:false}).range(f,f+sz-1);
+  if(filter==='new')q=q.or('status.is.null,status.eq.new');
+  else if(filter!=='all')q=q.eq('status',filter);
+  if(search)q=q.or(`title.ilike.%${search}%,company_name.ilike.%${search}%`);
+  const{data,error}=await q;
+  if(error){
+    if(error.message?.includes('status')){await loadJobsFB(append);return;}
+    document.getElementById('jobList').innerHTML=`<div class="empty-state"><h3>Error</h3><p>${esc(error.message)}</p></div>`;return;
+  }
+  jobs=append?[...jobs,...(data||[])]:(data||[]);renderJobs();
+  document.getElementById('loadMore').style.display=(data||[]).length===sz?'block':'none';
+}
+async function loadJobsFB(append){
+  const f=pg*sz;let q=db.from('jobs').select('*').order('created_at',{ascending:false}).range(f,f+sz-1);
+  if(search)q=q.or(`title.ilike.%${search}%,company_name.ilike.%${search}%`);
+  const{data}=await q;jobs=append?[...jobs,...(data||[])]:(data||[]);renderJobs();
+}
+function nextPage(){pg++;loadJobs(true);}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderJobs(){
+  const el=document.getElementById('jobList');
+  if(!jobs.length){el.innerHTML=`<div class="empty-state fade-in"><div class="empty-state-icon">📋</div><h3>Nothing here</h3><p>${filter==='new'?'New jobs appear after the crawler runs.':'No jobs in this filter.'}</p></div>`;return;}
+  el.innerHTML=jobs.map((j,i)=>{
+    const st=j.status||'new',acc=accB(j),dt=fDate(j.created_at||j.listing_date);
+    return`<div class="job-card ${st} fade-in" style="animation-delay:${Math.min(i*30,300)}ms" onclick="openDetail(${j.id})">
+      <div class="job-card-top"><div style="flex:1;min-width:0"><div class="job-title">${esc(j.title)}</div><div class="job-company">${esc(j.company_name||'Unknown')}</div></div>
+      <div class="job-card-actions">${st!=='not_interested'?`<button class="card-action-btn" onclick="event.stopPropagation();qSt(${j.id},'not_interested')" title="Not interested">👎</button>`:''}${st!=='applied'?`<button class="card-action-btn" onclick="event.stopPropagation();qSt(${j.id},'applied')" title="Applied">✓</button>`:''}</div></div>
+      <div class="job-meta"><span class="job-meta-tag">📍 ${esc(j.location||'Auckland')}</span>${j.salary?`<span class="job-meta-tag">💰 ${esc(j.salary)}</span>`:''}<span class="job-meta-tag">📅 ${dt}</span><span class="accredited-badge ${acc.c}">${acc.l}</span></div></div>`;
+  }).join('');
+}
+function accB(j){const r=j.job_results;if(r&&Array.isArray(r)&&r.length)return r[0].is_accredited?{c:'yes',l:'✓ Accredited'}:{c:'no',l:'✗ Not accredited'};if(r&&typeof r==='object'&&!Array.isArray(r))return r.is_accredited?{c:'yes',l:'✓ Accredited'}:{c:'no',l:'✗ Not accredited'};return{c:'unknown',l:'? Unknown'};}
+function fDate(d){if(!d)return'—';const t=new Date(d),n=new Date(),x=Math.floor((n-t)/864e5);if(!x)return'Today';if(x===1)return'Yesterday';if(x<7)return x+'d ago';return t.toLocaleDateString('en-NZ',{day:'numeric',month:'short'});}
+
+// ============================================================
+// FILTERS
+// ============================================================
+function setFilter(f,btn){filter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');loadJobs();}
+let sT;function doSearch(v){clearTimeout(sT);sT=setTimeout(()=>{search=v.trim();loadJobs();},300);}
+
+// ============================================================
+// STATUS
+// ============================================================
+async function setSt(id,st){await db.from('jobs').update({status:st}).eq('id',id);}
+async function qSt(id,st){await setSt(id,st);toast({applied:'✓ Applied',not_interested:'👎 Not interested',seen:'👁 Seen'}[st]||st);loadJobs();loadCounts();}
+
+// ============================================================
+// BLOCKED / KEYWORDS
+// ============================================================
+async function loadBlocked(){const{data}=await db.from('config').select('value').eq('key','blocked_titles').single();blocked=data?.value||[];renderBlocked();}
+function renderBlocked(){const el=document.getElementById('blockedList');if(!blocked.length){el.innerHTML='<p style="font-size:13px;color:var(--text-muted);padding:8px 0">None yet.</p>';return;}el.innerHTML=blocked.map((t,i)=>`<div class="tag-item"><span>${esc(t)}</span><button onclick="rmBlocked(${i})">×</button></div>`).join('');}
+async function addBlocked(){const el=document.getElementById('blockIn'),v=el.value.trim();if(!v)return;blocked.push(v);await saveBlocked();el.value='';renderBlocked();toast(`Blocked: "${v}"`);}
+async function rmBlocked(i){const r=blocked.splice(i,1)[0];await saveBlocked();renderBlocked();toast(`Unblocked: "${r}"`);}
+async function saveBlocked(){await db.from('config').upsert({key:'blocked_titles',value:blocked,updated_at:new Date().toISOString()});}
+async function blockTitle(id,title){const p=title.replace(/\s*([-–—|/])\s*/g,' ').replace(/\s+/g,' ').trim();if(p&&!blocked.some(b=>p.toLowerCase().includes(b.toLowerCase()))){blocked.push(p);await saveBlocked();}await setSt(id,'hidden');toast(`Blocked "${p}"`);closeDetail();}
+
+async function loadKw(){const{data}=await db.from('config').select('value').eq('key','seek_keywords').single();keywords=data?.value||[];renderKw();}
+function renderKw(){const el=document.getElementById('kwList');if(!keywords.length){el.innerHTML='<p style="font-size:13px;color:var(--text-muted)">None.</p>';return;}el.innerHTML=keywords.map((k,i)=>`<div class="tag-item"><span>${esc(k)}</span><button onclick="rmKw(${i})">×</button></div>`).join('');}
+async function addKw(){const el=document.getElementById('kwIn'),v=el.value.trim();if(!v)return;keywords.push(v);await db.from('config').upsert({key:'seek_keywords',value:keywords,updated_at:new Date().toISOString()});el.value='';renderKw();toast(`Added: "${v}"`);}
+async function rmKw(i){const r=keywords.splice(i,1)[0];await db.from('config').upsert({key:'seek_keywords',value:keywords,updated_at:new Date().toISOString()});renderKw();toast(`Removed: "${r}"`);}
+
+// ============================================================
+// DETAIL
+// ============================================================
+async function openDetail(id){
+  const ov=document.getElementById('overlay'),pn=document.getElementById('panel'),ct=document.getElementById('panelContent');
+  ov.classList.add('open');requestAnimationFrame(()=>pn.classList.add('open'));
+  ct.innerHTML='<div class="page-loading"><div class="loading-spinner"></div>Loading...</div>';
+
+  let{data:j}=await db.from('jobs').select('*,job_results(is_accredited,companies:company_id(name,is_accredited,linkedin_url,website_url,company_summary))').eq('id',id).single();
+  if(!j){ct.innerHTML='<p>Failed to load.</p>';return;}
+
+  let cl=null;
+  try{const{data:cls}=await db.from('cover_letters').select('*').eq('job_id',id).order('created_at',{ascending:false}).limit(1);cl=cls?.[0]||null;}catch(e){}
+
+  detailJob=j;letterText=cl?.letter_text||'';
+  const st=j.status||'new',acc=accB(j),co=j.job_results?.[0]?.companies||(j.job_results?.companies)||null;
+  const safeTitle=esc(j.title).replace(/`/g,'').replace(/\\/g,'');
+
+  ct.innerHTML=`
+    <button class="modal-close" onclick="closeDetail()">← Back</button>
+    <h2 class="detail-title">${esc(j.title)}</h2>
+    <div class="detail-company">${esc(j.company_name||'Unknown')}</div>
+    <div class="detail-meta">
+      <span class="detail-meta-item">📍 ${esc(j.location||'Auckland')}</span>
+      ${j.salary?`<span class="detail-meta-item">💰 ${esc(j.salary)}</span>`:''}
+      <span class="detail-meta-item">${fDate(j.listing_date||j.created_at)}</span>
+      <span class="accredited-badge ${acc.c}" style="font-size:12px;padding:4px 10px">${acc.l}</span>
+    </div>
+    <div class="detail-actions">
+      ${st!=='seen'&&st!=='applied'?`<button class="btn btn-secondary" onclick="markD(${j.id},'seen')">👁 Seen</button>`:''}
+      ${st!=='applied'?`<button class="btn btn-green" onclick="markD(${j.id},'applied')">✓ Applied</button>`:''}
+      ${st!=='not_interested'?`<button class="btn btn-red" onclick="markD(${j.id},'not_interested')">👎 Not interested</button>`:''}
+      <a href="${esc(j.seek_url)}" target="_blank" class="btn btn-secondary">Seek ↗</a>
+      <button class="btn btn-secondary btn-sm" onclick="blockTitle(${j.id},'${safeTitle}')">🚫 Don't show this type</button>
+      <button class="btn btn-secondary btn-sm" onclick="recheck('${esc(j.company_name||'').replace(/'/g,"\\'")}')" id="rcBtn">↻ Recheck</button>
+    </div>
+    ${co?`<div class="detail-section"><h3>Company</h3><p>${esc(co.company_summary||co.name||'')}</p>${co.linkedin_url?`<p style="margin-top:8px"><a href="${esc(co.linkedin_url)}" target="_blank" style="color:var(--accent)">LinkedIn ↗</a></p>`:''}${co.website_url?`<p><a href="${esc(co.website_url)}" target="_blank" style="color:var(--accent)">Website ↗</a></p>`:''}</div>`:''}
+    <div class="detail-section"><h3>Job Description</h3><div class="desc-text">${esc(j.raw_description||j.description_summary||'No description.')}</div></div>
+    <div class="detail-section">
+      <h3>Cover Letter</h3>
+      ${cl?`
+        <div class="cover-letter-output">${esc(cl.letter_text)}</div>
+        <div class="cl-actions">
+          ${cl.drive_url?`<a href="${esc(cl.drive_url)}" target="_blank" class="btn btn-secondary btn-sm">📄 Open in Drive</a>`:''}
+          <button class="btn btn-secondary btn-sm" onclick="dlDocx()">⬇ .docx</button>
+          <button class="btn btn-secondary btn-sm" onclick="dlPdf()">⬇ .pdf</button>
+          <button class="btn btn-secondary btn-sm" onclick="cpLetter()">📋 Copy</button>
+          <button class="btn btn-primary btn-sm" onclick="genCL(${j.id})" id="clBtn">↻ Regenerate</button>
+        </div>
+      `:`
+        <p style="margin-bottom:12px;font-size:14px;color:var(--text-secondary);font-weight:300">Generate a tailored cover letter from the template.</p>
+        <button class="btn btn-primary" onclick="genCL(${j.id})" id="clBtn">✍ Generate Cover Letter</button>
+      `}
+      <div id="clOut"></div>
+    </div>`;
+
+  if(!j.status||j.status==='new')await setSt(j.id,'seen');
+}
+
+async function markD(id,st){await setSt(id,st);toast({applied:'✓ Applied',not_interested:'👎 Not interested',seen:'👁 Seen'}[st]);openDetail(id);loadCounts();}
+function closeDetail(){document.getElementById('panel').classList.remove('open');setTimeout(()=>{document.getElementById('overlay').classList.remove('open');detailJob=null;},300);loadJobs();loadCounts();}
+
+// ============================================================
+// RECHECK
+// ============================================================
+async function recheck(name){
+  if(!name){toast('No company');return;}
+  const btn=document.getElementById('rcBtn');btn.disabled=true;btn.innerHTML='<div class="loading-spinner"></div>';
+  try{
+    const fd=new FormData();fd.append('query',name);fd.append('collection','2');fd.append('page','1');
+    const r=await fetch('https://www.immigration.govt.nz/list-api/getAPIResults/',{method:'POST',body:fd});
+    if(!r.ok)throw new Error(r.status);
+    const d=await r.json(),res=d?.results||d?.data||d||[];
+    const norm=name.toLowerCase().replace(/\b(ltd|limited|nz|inc|pty|group|co)\b/g,'').replace(/[^a-z0-9 ]/g,'').trim();
+    let found=false;
+    if(Array.isArray(res))for(const e of res){const n=(e.name||e.employer_name||e.title||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').trim();if(n.includes(norm)||norm.includes(n)){found=true;break;}}
+    if(!found&&typeof d==='object'&&JSON.stringify(d).toLowerCase().includes(norm))found=true;
+    toast(found?'✓ Accredited!':'✗ Not on list');btn.innerHTML=found?'✓ Accredited':'✗ Not found';btn.disabled=false;
+  }catch(e){toast('Check failed');btn.innerHTML='↻ Retry';btn.disabled=false;}
+}
+
+// ============================================================
+// COVER LETTER GENERATION
+// ============================================================
+async function genCL(jobId){
+  const out=document.getElementById('clOut'),btn=document.getElementById('clBtn'),j=detailJob;
+  if(!j)return;
+  btn.disabled=true;btn.innerHTML='<div class="loading-spinner"></div> Generating...';
+  out.innerHTML='<div class="cover-letter-output"><em style="color:var(--text-muted)">Writing your cover letter...</em></div>';
+
+  const today=new Date().toLocaleDateString('en-NZ',{day:'numeric',month:'long',year:'numeric'});
+  const prompt=`You are filling in a cover letter template for Ashlee Tancock's job application. Replace ALL [bracketed placeholder] sections with appropriate content. Remove ALL lines starting with TIP. Choose the most relevant experience based on the job description. Keep it professional, warm, under 400 words. Use date: ${today}. If hiring manager unknown, use "Dear Hiring Manager". Job found on Seek. Output ONLY the final letter — no preamble, no explanation, no markdown formatting.
+
+TEMPLATE:
+${TPL}
+
+JOB: ${j.title}
+COMPANY: ${j.company_name||'the employer'}
+LOCATION: ${j.location||'Auckland'}
+DESCRIPTION:
+${(j.raw_description||j.description_summary||'No description.').substring(0,4000)}
+
+CV:
+${CV}`;
+
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':C.aiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,messages:[{role:'user',content:prompt}]})
+    });
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`API ${r.status}`);}
+    const d=await r.json();
+    const letter=d.content?.map(c=>c.text||'').join('\n')||'No content.';
+    letterText=letter;
+
+    // Save to Google Drive
+    let driveUrl=null;
+    try{
+      const docTitle=`Cover Letter — ${j.company_name||'Company'} — ${j.title}`;
+      driveUrl=await createDriveDoc(docTitle,letter);
+      if(driveUrl)toast('Saved to Google Drive');
+    }catch(e){console.warn('Drive save failed:',e);}
+
+    // Save to Supabase
+    try{await db.from('cover_letters').upsert({job_id:jobId,letter_text:letter,drive_url:driveUrl,created_at:new Date().toISOString()},{onConflict:'job_id'});}catch(e){console.warn('DB save failed:',e);}
+
+    out.innerHTML=`<div class="cover-letter-output">${esc(letter)}</div>
+      <div class="cl-actions">
+        ${driveUrl?`<a href="${esc(driveUrl)}" target="_blank" class="btn btn-secondary btn-sm">📄 Open in Drive</a>`:''}
+        <button class="btn btn-secondary btn-sm" onclick="dlDocx()">⬇ .docx</button>
+        <button class="btn btn-secondary btn-sm" onclick="dlPdf()">⬇ .pdf</button>
+        <button class="btn btn-secondary btn-sm" onclick="cpLetter()">📋 Copy</button>
+      </div>`;
+    btn.disabled=false;btn.innerHTML='↻ Regenerate';
+  }catch(e){
+    out.innerHTML=`<div class="cover-letter-output" style="border-color:var(--red)"><p style="color:var(--red)">Failed: ${esc(e.message)}</p></div>`;
+    btn.disabled=false;btn.innerHTML='✍ Retry';
+  }
+}
+
+// ============================================================
+// DOWNLOADS
+// ============================================================
+async function dlDocx(){
+  if(!letterText){toast('No letter');return;}
+  const{Document:D,Packer:P,Paragraph:Pg,TextRun:T}=docx;
+  const lines=letterText.split('\n'),ch=[];
+  for(const l of lines){
+    const t=l.trim();
+    if(!t){ch.push(new Pg({spacing:{after:120},children:[]}));continue;}
+    const isName=t==='Ashlee Tancock'&&!ch.length;
+    const isContact=t.startsWith('Auckland, New Zealand')&&ch.length<=2;
+    const isSign=/^(Kind|Warm|Best)\s+regards,?$/i.test(t);
+    ch.push(new Pg({
+      spacing:{after:isName?40:isContact?200:isSign?40:160,...(isSign?{before:240}:{})},
+      children:[new T({text:t,bold:isName,size:isName?28:isContact?20:22,font:'Calibri',...(isContact?{color:'666666'}:{})})]
+    }));
+  }
+  const doc=new D({sections:[{properties:{page:{size:{width:11906,height:16838},margin:{top:1440,right:1440,bottom:1440,left:1440}}},children:ch}]});
+  const blob=await P.toBlob(doc);
+  dlBlob(blob,`Cover Letter - ${detailJob?.company_name||'company'} - ${detailJob?.title||'role'}.docx`);
+  toast('Downloaded .docx');
+}
+
+function dlPdf(){
+  if(!letterText){toast('No letter');return;}
+  const div=document.createElement('div');
+  div.style.cssText='font-family:Calibri,sans-serif;font-size:11pt;line-height:1.6;color:#333;padding:40px;max-width:600px;';
+  for(const l of letterText.split('\n')){const p=document.createElement('p');p.style.margin=l.trim()?'0 0 8px':'0 0 16px';p.textContent=l;div.appendChild(p);}
+  html2pdf().set({margin:[15,15,15,15],filename:`Cover Letter - ${detailJob?.company_name||'company'} - ${detailJob?.title||'role'}.pdf`,html2canvas:{scale:2},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(div).save();
+  toast('Downloaded .pdf');
+}
+
+function cpLetter(){if(!letterText){toast('Nothing to copy');return;}navigator.clipboard.writeText(letterText).then(()=>toast('Copied!')).catch(()=>toast('Failed'));}
+
+// ============================================================
+// UTILS
+// ============================================================
+function dlBlob(b,n){const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=String(s);return d.innerHTML;}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('visible');setTimeout(()=>t.classList.remove('visible'),2500);}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail();});
+</script>
+
+</body>
+</html>
